@@ -1,34 +1,19 @@
-FROM node:22.17.1-alpine AS base
-WORKDIR /usr/src/wpp-server
-ENV NODE_ENV=production PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-COPY package.json ./
-RUN apk update && \
-    apk add --no-cache \
-    vips-dev \
-    fftw-dev \
-    gcc \
-    g++ \
-    make \
-    libc6-compat \
-    && rm -rf /var/cache/apk/*
-RUN yarn install --production --pure-lockfile && \
+FROM node:22.18.0
+
+RUN apt-get update && apt-get install -y \
+  build-essential \
+  libcairo2-dev \
+  libpango1.0-dev \
+  libjpeg-dev \
+  libgif-dev \
+  librsvg2-dev \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY . .
+
+RUN yarn install --production --pure-lockfile --ignore-engines && \
     yarn add sharp --ignore-engines && \
     yarn cache clean
 
-FROM base AS build
-WORKDIR /usr/src/wpp-server
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-COPY package.json  ./
-RUN yarn install --production=false --pure-lockfile
-RUN yarn cache clean
-COPY . .
-RUN yarn build
-
-FROM base
-WORKDIR /usr/src/wpp-server/
-RUN apk add --no-cache chromium
-RUN yarn cache clean
-COPY . .
-COPY --from=build /usr/src/wpp-server/ /usr/src/wpp-server/
-EXPOSE 21465
-ENTRYPOINT ["node", "dist/server.js"]
+CMD ["yarn", "start"]
